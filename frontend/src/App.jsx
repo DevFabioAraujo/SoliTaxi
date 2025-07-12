@@ -1,24 +1,34 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import Home from './pages/Home';
 import PassengerForm from './pages/PassengerForm';
 import TaxiRequestForm from './pages/TaxiRequestForm';
 import RequestList from './pages/RequestList';
 import Dashboard from './pages/Dashboard';
 
-export default function App() {
+function AppContent() {
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header - Only show on non-home pages */}
+      {!isHomePage && (
         <header className="bg-white shadow-sm border-b">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between h-16">
-              <h1 className="text-xl font-bold text-gray-900">
+              <Link to="/" className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
                 Sistema de Solicitação de Táxi
-              </h1>
+              </Link>
               <nav className="flex space-x-6">
                 <Link 
                   to="/" 
+                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                >
+                  Início
+                </Link>
+                <Link 
+                  to="/dashboard" 
                   className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
                 >
                   Dashboard
@@ -45,18 +55,21 @@ export default function App() {
             </div>
           </div>
         </header>
+      )}
 
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/request" element={<TaxiRequestForm />} />
-            <Route path="/passengers" element={<PassengerForm />} />
-            <Route path="/requests" element={<RequestList />} />
-          </Routes>
-        </main>
+      {/* Main Content */}
+      <main className={!isHomePage ? "container mx-auto px-4 py-8" : ""}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/request" element={<TaxiRequestForm />} />
+          <Route path="/passengers" element={<PassengerForm />} />
+          <Route path="/requests" element={<RequestList />} />
+        </Routes>
+      </main>
 
-        {/* Footer */}
+      {/* Footer - Only show on non-home pages */}
+      {!isHomePage && (
         <footer className="bg-white border-t mt-12">
           <div className="container mx-auto px-4 py-6">
             <p className="text-center text-gray-600">
@@ -64,7 +77,15 @@ export default function App() {
             </p>
           </div>
         </footer>
-      </div>
+      )}
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

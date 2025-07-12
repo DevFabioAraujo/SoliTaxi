@@ -1,0 +1,4 @@
+﻿ID,Data,Horário,Solicitante,Origem,Destino,Número do Carro,Centro de Custo,Status,Passageiros,Criado em
+4,2025-07-10,06:00,"Fabio Araujo","Casa","ERICSSON","Carro 1","4088",Concluída,"Aldo Varavallo, Fabio Ferreira de Araujo, DALMO FERREIRO DE PAULA, EDINILSON SILVA","10/07/2025, 23:28"
+1,2024-01-15,14:00,"FABIO ARAUJO","CASA","ERICSSON","Carro 1","4088",Pendente,"AILTON LUCIANO DE OLIVEIRA, Adriano Donizete de Oliveira, Aldo Varavallo","10/07/2025, 23:06"
+2,2024-01-15,18:00,"FABIO ARAUJO","ERICSSON","CASA","Carro 2","4088",Pendente,"C�LIO RODRIGO DE MOURA, CLAUDIA ROBERTA CORREA","10/07/2025, 23:06"
