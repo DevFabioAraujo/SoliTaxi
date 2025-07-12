@@ -84,7 +84,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
+    <Router basename="/Solicitartaxi">
       <AppContent />
     </Router>
   );
