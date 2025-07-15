@@ -1,12 +1,47 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const db = require('./database');
 const emailService = require('./emailService');
 const excelService = require('./excelService');
+const fileImportService = require('./services/fileImportService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Configuração do multer para upload de arquivos
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = ['.csv', '.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos CSV, XLS e XLSX são permitidos'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
 
 // Middlewares
 app.use(cors());
@@ -128,7 +163,7 @@ app.delete('/requests/:id', async (req, res) => {
   }
 });
 
-// Rota para importar dados do CSV
+// Rota para importar dados do CSV (mantida para compatibilidade)
 app.post('/import/passengers', async (req, res) => {
   try {
     const { passengers } = req.body;
@@ -143,7 +178,8 @@ app.post('/import/passengers', async (req, res) => {
           city: passengerData.city || '',
           phone: passengerData.phone || '',
           cost_center: passengerData.cost_center || '',
-          shift: passengerData.shift || ''
+          shift: passengerData.shift || '',
+          area: passengerData.area || 'RCB'
         });
         results.push(passenger);
       }
@@ -155,6 +191,129 @@ app.post('/import/passengers', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Nova rota para upload e importação de arquivos
+app.post('/import/passengers/file', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+    }
+
+    const filePath = req.file.path;
+    
+    try {
+      // Processar arquivo
+      const result = await fileImportService.processFile(filePath);
+      
+      if (result.valid.length === 0) {
+        return res.status(400).json({
+          error: 'Nenhum passageiro válido encontrado no arquivo',
+          invalid: result.invalid,
+          summary: result.summary
+        });
+      }
+
+      // Verificar duplicatas
+      const existingPassengers = await db.getAllPassengers();
+      const duplicateCheck = fileImportService.checkDuplicates(result.valid, existingPassengers);
+
+      // Importar apenas passageiros únicos
+      const imported = [];
+      for (const passengerData of duplicateCheck.unique) {
+        const passenger = await db.createPassenger(passengerData);
+        imported.push(passenger);
+      }
+
+      res.json({
+        success: true,
+        message: `${imported.length} passageiros importados com sucesso`,
+        imported: imported,
+        duplicates: duplicateCheck.duplicates,
+        invalid: result.invalid,
+        summary: {
+          total: result.summary.total,
+          imported: imported.length,
+          duplicates: duplicateCheck.duplicates.length,
+          invalid: result.summary.invalid
+        }
+      });
+
+    } finally {
+      // Limpar arquivo temporário
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+  } catch (error) {
+    console.error('Erro ao importar arquivo:', error);
+    
+    // Limpar arquivo em caso de erro
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      error: 'Erro ao processar arquivo',
+      message: error.message 
+    });
+  }
+});
+
+// Rota para preview do arquivo antes da importação
+app.post('/import/passengers/preview', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+    }
+
+    const filePath = req.file.path;
+    
+    try {
+      // Processar arquivo para preview
+      const result = await fileImportService.processFile(filePath);
+      
+      // Verificar duplicatas
+      const existingPassengers = await db.getAllPassengers();
+      const duplicateCheck = fileImportService.checkDuplicates(result.valid, existingPassengers);
+
+      res.json({
+        success: true,
+        preview: {
+          valid: result.valid.slice(0, 10), // Mostrar apenas os primeiros 10 para preview
+          invalid: result.invalid,
+          duplicates: duplicateCheck.duplicates,
+          summary: {
+            total: result.summary.total,
+            valid: result.summary.valid,
+            invalid: result.summary.invalid,
+            duplicates: duplicateCheck.duplicates.length,
+            unique: duplicateCheck.unique.length
+          }
+        }
+      });
+
+    } finally {
+      // Limpar arquivo temporário
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+  } catch (error) {
+    console.error('Erro ao fazer preview do arquivo:', error);
+    
+    // Limpar arquivo em caso de erro
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      error: 'Erro ao processar arquivo para preview',
+      message: error.message 
+    });
   }
 });
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import FileImport from '../components/FileImport';
 
 export default function PassengerForm() {
   const [form, setForm] = useState({
@@ -9,12 +10,17 @@ export default function PassengerForm() {
     city: '',
     phone: '',
     cost_center: '',
-    shift: ''
+    shift: '',
+    area: 'RCB'
   });
   const [passengers, setPassengers] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [areaFilter, setAreaFilter] = useState('all');
+  const [showImport, setShowImport] = useState(false);
+
+  const areas = ['Produção', 'Warehouse', 'RCB', 'SAR'];
 
   useEffect(() => {
     fetchPassengers();
@@ -55,7 +61,8 @@ export default function PassengerForm() {
         city: '',
         phone: '',
         cost_center: '',
-        shift: ''
+        shift: '',
+        area: 'RCB'
       });
       
       fetchPassengers();
@@ -94,15 +101,35 @@ export default function PassengerForm() {
       city: '',
       phone: '',
       cost_center: '',
-      shift: ''
+      shift: '',
+      area: 'RCB'
     });
   };
 
-  const filteredPassengers = passengers.filter(passenger =>
-    passenger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    passenger.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    passenger.neighborhood.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleImportSuccess = () => {
+    fetchPassengers();
+    setShowImport(false);
+  };
+
+  const getAreaBadgeColor = (area) => {
+    const colors = {
+      'Produção': 'bg-blue-100 text-blue-800',
+      'Warehouse': 'bg-green-100 text-green-800',
+      'RCB': 'bg-purple-100 text-purple-800',
+      'SAR': 'bg-orange-100 text-orange-800'
+    };
+    return colors[area] || 'bg-gray-100 text-gray-800';
+  };
+
+  const filteredPassengers = passengers.filter(passenger => {
+    const matchesSearch = passenger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      passenger.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      passenger.neighborhood.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesArea = areaFilter === 'all' || passenger.area === areaFilter;
+    
+    return matchesSearch && matchesArea;
+  });
 
   return (
     <div className="space-y-6">
@@ -110,11 +137,19 @@ export default function PassengerForm() {
         <h1 className="text-3xl font-bold text-gray-900">
           {editingId ? 'Editar Passageiro' : 'Cadastrar Passageiro'}
         </h1>
-        {editingId && (
-          <button onClick={cancelEdit} className="btn-secondary">
-            Cancelar Edição
+        <div className="flex space-x-3">
+          {editingId && (
+            <button onClick={cancelEdit} className="btn-secondary">
+              Cancelar Edição
+            </button>
+          )}
+          <button
+            onClick={() => setShowImport(!showImport)}
+            className="btn-primary"
+          >
+            {showImport ? '📝 Cadastro Manual' : '📁 Importar Arquivo'}
           </button>
-        )}
+        </div>
       </div>
 
       {/* Formulário */}
@@ -203,6 +238,21 @@ export default function PassengerForm() {
             </select>
           </div>
 
+          <div>
+            <label className="form-label">Área *</label>
+            <select
+              name="area"
+              value={form.area}
+              onChange={handleChange}
+              className="form-input"
+              required
+            >
+              {areas.map(area => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="md:col-span-2">
             <button 
               type="submit" 
@@ -215,19 +265,34 @@ export default function PassengerForm() {
         </form>
       </div>
 
+      {/* Componente de Importação */}
+      {showImport && (
+        <FileImport onImportSuccess={handleImportSuccess} />
+      )}
+
       {/* Lista de Passageiros */}
       <div className="card">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-3 md:space-y-0">
           <h2 className="text-xl font-bold text-gray-900">
             Passageiros Cadastrados ({filteredPassengers.length})
           </h2>
-          <div className="w-64">
+          <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3">
+            <select
+              value={areaFilter}
+              onChange={(e) => setAreaFilter(e.target.value)}
+              className="form-input w-full md:w-40"
+            >
+              <option value="all">Todas as áreas</option>
+              {areas.map(area => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
             <input
               type="text"
               placeholder="Buscar passageiros..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-input"
+              className="form-input w-full md:w-64"
             />
           </div>
         </div>
@@ -238,6 +303,7 @@ export default function PassengerForm() {
               <thead>
                 <tr>
                   <th>Nome</th>
+                  <th>Área</th>
                   <th>Telefone</th>
                   <th>Cidade</th>
                   <th>Bairro</th>
@@ -250,6 +316,11 @@ export default function PassengerForm() {
                 {filteredPassengers.map((passenger) => (
                   <tr key={passenger.id}>
                     <td className="font-medium">{passenger.name}</td>
+                    <td>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAreaBadgeColor(passenger.area)}`}>
+                        {passenger.area}
+                      </span>
+                    </td>
                     <td>{passenger.phone}</td>
                     <td>{passenger.city}</td>
                     <td>{passenger.neighborhood}</td>

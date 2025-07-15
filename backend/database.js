@@ -42,8 +42,23 @@ class Database {
             phone TEXT,
             cost_center TEXT,
             shift TEXT,
+            area TEXT DEFAULT 'RCB',
             created_at DATETIME DEFAULT (datetime('now', 'localtime', '-3 hours'))
           )
+        `);
+
+        // Adicionar coluna area se não existir (para bancos existentes)
+        this.db.run(`
+          ALTER TABLE passengers ADD COLUMN area TEXT DEFAULT 'RCB'
+        `, (err) => {
+          if (err && !err.message.includes('duplicate column name')) {
+            console.error('Erro ao adicionar coluna area:', err.message);
+          }
+        });
+
+        // Atualizar funcionários existentes sem área para RCB
+        this.db.run(`
+          UPDATE passengers SET area = 'RCB' WHERE area IS NULL OR area = ''
         `);
 
         // Tabela de solicitações de táxi
@@ -104,14 +119,16 @@ class Database {
 
   createPassenger(passenger) {
     return new Promise((resolve, reject) => {
-      const { name, address, neighborhood, city, phone, cost_center, shift } = passenger;
+      const { name, address, neighborhood, city, phone, cost_center, shift, area } = passenger;
       const createdAt = this.getBrazilianDateTime();
+      const passengerArea = area || 'RCB'; // Default para RCB se não especificado
+      
       this.db.run(
-        'INSERT INTO passengers (name, address, neighborhood, city, phone, cost_center, shift, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [name, address, neighborhood, city, phone, cost_center, shift, createdAt],
+        'INSERT INTO passengers (name, address, neighborhood, city, phone, cost_center, shift, area, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, address, neighborhood, city, phone, cost_center, shift, passengerArea, createdAt],
         function(err) {
           if (err) reject(err);
-          else resolve({ id: this.lastID, ...passenger, created_at: createdAt });
+          else resolve({ id: this.lastID, ...passenger, area: passengerArea, created_at: createdAt });
         }
       );
     });
@@ -119,13 +136,15 @@ class Database {
 
   updatePassenger(id, passenger) {
     return new Promise((resolve, reject) => {
-      const { name, address, neighborhood, city, phone, cost_center, shift } = passenger;
+      const { name, address, neighborhood, city, phone, cost_center, shift, area } = passenger;
+      const passengerArea = area || 'RCB'; // Default para RCB se não especificado
+      
       this.db.run(
-        'UPDATE passengers SET name = ?, address = ?, neighborhood = ?, city = ?, phone = ?, cost_center = ?, shift = ? WHERE id = ?',
-        [name, address, neighborhood, city, phone, cost_center, shift, id],
+        'UPDATE passengers SET name = ?, address = ?, neighborhood = ?, city = ?, phone = ?, cost_center = ?, shift = ?, area = ? WHERE id = ?',
+        [name, address, neighborhood, city, phone, cost_center, shift, passengerArea, id],
         function(err) {
           if (err) reject(err);
-          else resolve({ id, ...passenger });
+          else resolve({ id, ...passenger, area: passengerArea });
         }
       );
     });
