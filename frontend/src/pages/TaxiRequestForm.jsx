@@ -14,8 +14,12 @@ export default function TaxiRequestForm() {
   });
 
   const [passengers, setPassengers] = useState([]);
+  const [filteredPassengers, setFilteredPassengers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedPassengers, setSelectedPassengers] = useState([]);
+  const [selectedArea, setSelectedArea] = useState('all');
+
+  const areas = ['Produção', 'Warehouse', 'RCB', 'SAR'];
 
   useEffect(() => {
     fetchPassengers();
@@ -30,10 +34,36 @@ export default function TaxiRequestForm() {
     try {
       const response = await axios.get('http://localhost:3001/passengers');
       setPassengers(response.data);
+      setFilteredPassengers(response.data);
     } catch (error) {
       console.error('Erro ao buscar passageiros:', error);
       alert('Erro ao carregar passageiros');
     }
+  };
+
+  const handleAreaChange = (area) => {
+    setSelectedArea(area);
+    
+    if (area === 'all') {
+      setFilteredPassengers(passengers);
+    } else {
+      const filtered = passengers.filter(passenger => passenger.area === area);
+      setFilteredPassengers(filtered);
+    }
+    
+    // Limpar passageiros selecionados quando mudar de área
+    setSelectedPassengers([]);
+    setForm(prev => ({ ...prev, passengerIds: [] }));
+  };
+
+  const getAreaBadgeColor = (area) => {
+    const colors = {
+      'Produção': 'bg-blue-100 text-blue-800',
+      'Warehouse': 'bg-green-100 text-green-800',
+      'RCB': 'bg-purple-100 text-purple-800',
+      'SAR': 'bg-orange-100 text-orange-800'
+    };
+    return colors[area] || 'bg-gray-100 text-gray-800';
   };
 
   const handleChange = (e) => {
@@ -41,7 +71,7 @@ export default function TaxiRequestForm() {
   };
 
   const handlePassengerSelect = (passengerId) => {
-    const passenger = passengers.find(p => p.id === parseInt(passengerId));
+    const passenger = filteredPassengers.find(p => p.id === parseInt(passengerId));
     if (!passenger) return;
 
     if (selectedPassengers.find(p => p.id === passenger.id)) {
@@ -264,38 +294,68 @@ export default function TaxiRequestForm() {
 
           {/* Lista de Passageiros Disponíveis */}
           <div className="card">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Passageiros Disponíveis</h3>
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-3 md:space-y-0">
+              <h3 className="text-lg font-bold text-gray-900">
+                Passageiros Disponíveis ({filteredPassengers.length})
+              </h3>
+              <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3">
+                <select
+                  value={selectedArea}
+                  onChange={(e) => handleAreaChange(e.target.value)}
+                  className="form-input w-full md:w-40"
+                >
+                  <option value="all">Todas as áreas</option>
+                  {areas.map(area => (
+                    <option key={area} value={area}>{area}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             
             <div className="max-h-96 overflow-y-auto space-y-2">
-              {passengers.map((passenger) => {
-                const isSelected = selectedPassengers.find(p => p.id === passenger.id);
-                return (
-                  <div
-                    key={passenger.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      isSelected 
-                        ? 'bg-blue-100 border-blue-300' 
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    }`}
-                    onClick={() => handlePassengerSelect(passenger.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{passenger.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {passenger.city} - {passenger.neighborhood}
-                        </p>
-                        <p className="text-sm text-gray-500">{passenger.phone}</p>
+              {filteredPassengers.length > 0 ? (
+                filteredPassengers.map((passenger) => {
+                  const isSelected = selectedPassengers.find(p => p.id === passenger.id);
+                  return (
+                    <div
+                      key={passenger.id}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isSelected 
+                          ? 'bg-blue-100 border-blue-300' 
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => handlePassengerSelect(passenger.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <p className="font-medium text-gray-900">{passenger.name}</p>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAreaBadgeColor(passenger.area)}`}>
+                              {passenger.area}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {passenger.city} - {passenger.neighborhood}
+                          </p>
+                          <p className="text-sm text-gray-500">{passenger.phone}</p>
+                        </div>
+                        {isSelected && (
+                          <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
                       </div>
-                      {isSelected && (
-                        <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <p className="text-gray-500 text-center py-4">
+                  {selectedArea === 'all' 
+                    ? 'Nenhum passageiro cadastrado' 
+                    : `Nenhum passageiro encontrado na área ${selectedArea}`
+                  }
+                </p>
+              )}
             </div>
           </div>
         </div>
